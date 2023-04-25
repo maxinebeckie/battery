@@ -1,0 +1,13 @@
+[package]
+name = "battery"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ansi_rgb = "0.2.0"
+anyhow = "1.0.70"
+fastrand = "1.9.0"
+rgb = "0.8.36"
+systemstat = "0.2.3"
