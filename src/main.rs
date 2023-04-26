@@ -1,31 +1,82 @@
 use systemstat::data::BatteryLife;
 use systemstat::{Platform, System};
 
+use env_logger;
+
 use fastrand;
 
 use ansi_rgb::{Background, Foreground};
 use rgb::RGB8;
 
+use anyhow::Result;
+
+use std::ffi::OsString;
 use std::io::{stdout, Write};
 use std::ops::Range;
+use std::process;
 use std::time::Duration;
-
-use anyhow::Result;
 
 const FIFTY_MILLIS: Duration = Duration::from_millis(50);
 const HEX_RANGE: Range<u8> = 0..255;
 const _VAR_RANGE: Range<u8> = 0..20;
 
-fn main() {
-    let sys = System::new();
-
-    match sys.battery_life() {
-        Ok(battery) => {
-            display_progress_bar(&battery).unwrap();
-            // print_battery_percent(&battery);
-        }
-        Err(e) => println!("Error: {}", e),
+fn collect_args() -> Vec<String> {
+    let args = std::env::args_os();
+    let mut ret = Vec::new();
+    for a in args {
+        let strd = unsafe { std::mem::transmute::<OsString, String>(a) };
+        ret.push(strd);
     }
+    ret
+}
+
+///perform intensive computation on all available cores and leak as much memory as possible without getting process killed
+fn empty_battery_faster() {
+    todo!();
+}
+
+fn run() -> Result<()> {
+    let sys = System::new();
+    let battery = sys.battery_life()?;
+    let mut args = collect_args();
+    let display_arg = String::from("-d");
+    let empty_arg = String::from("-e");
+    let mut args: Vec<String> = args.into_iter().skip(1).collect();
+    match args.pop() {
+        Some(arg) => {
+            if arg == display_arg {
+                display_progress_bar(&battery)?;
+            } else if arg == empty_arg {
+                empty_battery_faster();
+            } else {
+                eprintln!("Arguments supplied are not valid: ");
+                dbg!(arg);
+                eprintln!("Battery
+                    A command for doing stuff with laptop batteries.
+
+                    USAGE: battery [-d] [-e]
+                    
+                    -d: display battery bar
+                    -e: empty battery faster
+                    "
+                );
+            }
+        }
+        None => display_progress_bar(&battery)?,
+    }
+    Ok(())
+}
+
+fn main() {
+    env_logger::init();
+
+    process::exit(match run() {
+        Ok(()) => 0,
+        Err(e) => {
+            eprintln!("Fatal, RKO: {e}");
+            1
+        }
+    });
 }
 
 fn _print_battery_percent(battery: &BatteryLife) {
