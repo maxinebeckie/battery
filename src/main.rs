@@ -15,6 +15,8 @@ use std::io::{stdout, Write};
 use std::ops::Range;
 use std::process;
 use std::time::Duration;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 const FIFTY_MILLIS: Duration = Duration::from_millis(50);
 const HEX_RANGE: Range<u8> = 0..255;
@@ -32,7 +34,43 @@ fn collect_args() -> Vec<String> {
 
 ///perform intensive computation on all available cores and leak as much memory as possible without getting process killed
 fn empty_battery_faster() {
-    todo!();
+    leak_memory::leak_memory();
+    //use all cpu cores
+    //disk reads/writes
+    //expensive syscalls
+}
+
+/// currently a basic memory leak from the rust docs that overflows the stack. might have to mess around with allocators to actually cause any sort of near-crash performance dips
+mod leak_memory {
+    use super::*;
+    use crate::leak_memory::List::{Cons, Nil};
+
+    #[derive(Debug)]
+    enum List {
+        Cons(i32, RefCell<Rc<List>>),
+        Nil,
+    }
+
+    impl List {
+        fn tail(&self) -> Option<&RefCell<Rc<List>>> {
+            match self {
+                Cons(_, item) => Some(item),
+                Nil => None, 
+            }
+        }
+    }
+    
+    pub fn leak_memory() {
+        let a = Rc::new(Cons(5, RefCell::new(Rc::new(Nil))));
+        let b = Rc::new(Cons(10, RefCell::new(Rc::clone(&a))));
+
+        if let Some(link) = a.tail() {
+            *link.borrow_mut() = Rc::clone(&b);
+        }
+
+        println!("a next item = {:?}", a.tail());   
+    }
+
 }
 
 fn run() -> Result<()> {
