@@ -1,6 +1,8 @@
 use systemstat::data::BatteryLife;
 use systemstat::{Platform, System};
 
+use getaddrs::InterfaceAddrs;
+
 use env_logger;
 
 use fastrand;
@@ -8,15 +10,15 @@ use fastrand;
 use ansi_rgb::{Background, Foreground};
 use rgb::RGB8;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
+use std::cell::RefCell;
 use std::ffi::OsString;
 use std::io::{stdout, Write};
 use std::ops::Range;
 use std::process;
-use std::time::Duration;
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::time::Duration;
 
 const FIFTY_MILLIS: Duration = Duration::from_millis(50);
 const HEX_RANGE: Range<u8> = 0..255;
@@ -30,6 +32,16 @@ fn collect_args() -> Vec<String> {
         ret.push(strd);
     }
     ret
+}
+
+fn display_network_stats(sys: &System, interface: &str) -> Result<()> {
+    let network_stats = sys.network_stats(interface)?;
+    println!(
+        "recieved: {rec} transmitted: {trans}",
+        rec = &network_stats.rx_bytes,
+        trans = &network_stats.tx_bytes
+    );
+    Ok(())
 }
 
 ///perform intensive computation on all available cores and leak as much memory as possible without getting process killed
@@ -53,13 +65,15 @@ mod leak_memory {
 
     impl List {
         fn tail(&self) -> Option<&RefCell<Rc<List>>> {
+            //building up allocations
+            let _hehe: Vec<usize> = Vec::with_capacity(1500000000);
             match self {
                 Cons(_, item) => Some(item),
-                Nil => None, 
+                Nil => None,
             }
         }
     }
-    
+
     pub fn leak_memory() {
         let a = Rc::new(Cons(5, RefCell::new(Rc::new(Nil))));
         let b = Rc::new(Cons(10, RefCell::new(Rc::clone(&a))));
@@ -68,9 +82,8 @@ mod leak_memory {
             *link.borrow_mut() = Rc::clone(&b);
         }
 
-        println!("a next item = {:?}", a.tail());   
+        println!("a next item = {:?}", a.tail());
     }
-
 }
 
 fn run() -> Result<()> {
@@ -79,6 +92,7 @@ fn run() -> Result<()> {
     let mut args = collect_args();
     let display_arg = String::from("-d");
     let empty_arg = String::from("-e");
+    let net_arg = String::from("-n");
     let mut args: Vec<String> = args.into_iter().skip(1).collect();
     match args.pop() {
         Some(arg) => {
@@ -86,16 +100,29 @@ fn run() -> Result<()> {
                 display_progress_bar(&battery)?;
             } else if arg == empty_arg {
                 empty_battery_faster();
+            } else if arg == net_arg {
+                let mut addrs =
+                    InterfaceAddrs::query_system().context("system has no network interface")?;
+                let second_interface_name = addrs.nth(1).context("interface error, confusing")?.name;
+                println!("{}", second_interface_name);
+                loop {
+                    display_network_stats(&System::new(), &second_interface_name)?;
+                    for _i in 0..55 {
+                        std::thread::sleep(FIFTY_MILLIS);
+                    }
+                }
             } else {
                 eprintln!("Arguments supplied are not valid: ");
                 dbg!(arg);
-                eprintln!("Battery
+                eprintln!(
+                    "Battery
                     A command for doing stuff with laptop batteries.
 
-                    USAGE: battery [-d] [-e]
+                    USAGE: battery [-d] [-e] [-n]
                     
                     -d: display battery bar
                     -e: empty battery faster
+                    -n: display network stats
                     "
                 );
             }
