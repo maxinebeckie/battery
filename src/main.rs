@@ -106,7 +106,9 @@ fn run() -> Result<()> {
                 let second_interface_name = addrs.nth(1).context("interface error, confusing")?.name;
                 println!("{}", second_interface_name);
                 loop {
-                    display_network_stats(&System::new(), &second_interface_name)?;
+                    //bug likely here? network traffic is constant
+                    let mut system_instant = System::new();
+                    display_network_stats(&system_instant, &second_interface_name)?;
                     for _i in 0..55 {
                         std::thread::sleep(FIFTY_MILLIS);
                     }
