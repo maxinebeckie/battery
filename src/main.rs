@@ -37,7 +37,7 @@ fn collect_args() -> Vec<String> {
 fn display_network_stats(sys: &System, interface: &str) -> Result<()> {
     let network_stats = sys.network_stats(interface)?;
     println!(
-        "recieved: {rec} transmitted: {trans}",
+        "rec: {rec} trans: {trans}",
         rec = &network_stats.rx_bytes,
         trans = &network_stats.tx_bytes
     );
